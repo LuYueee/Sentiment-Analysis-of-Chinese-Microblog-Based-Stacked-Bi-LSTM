@@ -1,1 +1,1 @@
-# FYP_Weibo
+# Final Year Project
