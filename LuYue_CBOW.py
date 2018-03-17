@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """
+CBOW: 
+    Use sampled softmax to build a continuous bag of words (CBOW) model, 
+    Map Chinese words to vectors
+    
 Created on Mon Mar  5 12:58:28 2018
 
-@author: windows
-
+@author: Yue, Lu
 
 """
-import random
 import tensorflow as tf
 import numpy as np
 import math
@@ -21,22 +23,25 @@ import os
 
 class word2vec():
     def __init__(self,
-                 vocab_list=None,
-                 embedding_size=None,
-                 win_len=None, # 单边窗口长
-                 num_sampled=None,
-                 learning_rate=None,
-                 logdir=None,
-                 model_path= None
+                 vocab_list     =   None,
+                 embedding_size =   None,
+                 win_len        =   None,
+                 num_sampled    =   None,
+                 learning_rate  =   None,
+                 logdir         =   None,
+                 model_path     =   None
                  ):
 
-        # 获得模型的基本参数
-        self.batch_size     = None # 一批中数据个数, 目前是根据情况来的
+        # Get basic parameter of CBOW model
+        self.batch_size     = None
+        # batch_size: the num of words in a training sent
+        
         if model_path!=None:
             self.load_model(model_path)
         else:
             # model parameters
             assert type(vocab_list)==list
+            # check if the type of vocab_list is a list
             self.vocab_list     = vocab_list
             self.vocab_size     = vocab_list.__len__()+1
             self.embedding_size = embedding_size
@@ -44,13 +49,10 @@ class word2vec():
             self.num_sampled    = num_sampled
             self.learning_rate  = learning_rate
             self.logdir         = logdir
-            ##############################################################################
-            #self.valid_size     = 16  # Random set of words to evaluate similarity on.
-            #self.valid_window   = 100  # Only pick dev samples in the head of the distribution.
-            #self.valid_examples = np.array(random.sample(range(self.valid_window), self.valid_size))
-            ##############################################################################
+
             
-            self.word2id = {}   # word => id 的映射
+            self.word2id = {}
+            # map word to id num according to the frequency rank
             for i in range(self.vocab_size):
                 if(i!=self.vocab_size-1):
                     # i == self.vocab_size-1 is reserved for null id
@@ -82,72 +84,32 @@ class word2vec():
     def build_graph(self):
         self.graph = tf.Graph()
         with self.graph.as_default():
-            '''
-    # Input data.
-    train_inputs = tf.placeholder(tf.int32, shape=[2 * self.win_len, batch_size])
-    train_labels = tf.placeholder(tf.float32, shape=[batch_size, 1])
-    valid_dataset = tf.constant(valid_examples, shape=[2 * self.win_len, batch_size], dtype=tf.int32)
-
-    # Variables.
-    embeddings = tf.Variable(
-        tf.random_uniform([vocabulary_size, embedding_size], -1.0, 1.0))
-    softmax_weights = tf.Variable(
-        tf.truncated_normal([vocabulary_size, embedding_size],
-                            stddev=1.0 / math.sqrt(embedding_size)))
-    softmax_biases = tf.Variable(tf.zeros([vocabulary_size]))
-
-    # Model.
-    # Look up embeddings for inputs.
-    embed = tf.nn.embedding_lookup(embeddings, train_inputs)
-    # sum up vectors on first dimensions, as context vectors
-    embed_sum = tf.reduce_sum(embed, 0)
-
-    # Compute the softmax loss, using a sample of the negative labels each time.
-    loss = tf.reduce_mean(
-        tf.nn.sampled_softmax_loss(softmax_weights, softmax_biases,
-                                   train_labels, embed_sum,
-                                   num_sampled, vocabulary_size))
-
-    # Optimizer.
-    optimizer = tf.train.AdagradOptimizer(1.0).minimize(loss)
-
-    # Compute the similarity between minibatch examples and all embeddings.
-    # We use the cosine distance:
-    norm = tf.sqrt(tf.reduce_sum(tf.square(embeddings), 1, keep_dims=True))
-    normalized_embeddings = embeddings / norm
-    valid_embeddings = tf.nn.embedding_lookup(
-        normalized_embeddings, valid_dataset)
-    # sum up vectors
-    valid_embeddings_sum = tf.reduce_sum(valid_embeddings, 0)
-    similarity = tf.matmul(valid_embeddings_sum, tf.transpose(normalized_embeddings))          
             
-            
-            '''
+            # Input data
             self.train_inputs = tf.placeholder(tf.int32, shape=[2 * self.win_len, self.batch_size])
-            #self.train_inputs = tf.placeholder(tf.int32, shape=[self.batch_size])
             self.train_labels = tf.placeholder(tf.int32, shape=[self.batch_size, 1])
             #self.valid_dataset = tf.constant(self.valid_examples, shape=[2 * self.win_len, self.batch_size], dtype=tf.int32)
 
+            # Variables
             self.embedding_dict = tf.Variable(
                 tf.random_uniform([self.vocab_size,self.embedding_size],-1.0,1.0)
             )
+            # word -> word vector
             self.softmax_weights = tf.Variable(tf.truncated_normal([self.vocab_size, self.embedding_size],
                                                               stddev=1.0/math.sqrt(self.embedding_size)))
             self.softmax_biases = tf.Variable(tf.zeros([self.vocab_size]))
                 
-            # 将输入序列向量化 4'30''
-            #embedding_dict 大词向量表  #train_inputs 一个batch输入的单词id
-            # 将输入序列向量化
-            ## embed是啥
-                    # Model.
 
-
-
-            embed = tf.nn.embedding_lookup(self.embedding_dict, self.train_inputs) # batch_size
+            # Model
+            # Look up embeddings for inputs
+            embed = tf.nn.embedding_lookup(self.embedding_dict, self.train_inputs) # 2 * win_len
+            # embed: input words -> input word vectors
+            
             # sum up vectors on first dimensions, as context vectors
             embed_sum = tf.reduce_sum(embed, 0)
             
-            # Compute the softmax loss, using a sample of the negative labels each time.
+            # Compute the softmax loss, using a sample of the negative labels each time
+            # input w,X.T,b we prepared before
             self.loss = tf.reduce_mean(
                 tf.nn.sampled_softmax_loss(
                     weights = self.softmax_weights,
@@ -160,18 +122,13 @@ class word2vec():
             )
 
             # tensorboard 相关 tf.scalar_summary
+            tf.summary.scalar('loss',self.loss)
 
-            tf.summary.scalar('loss',self.loss)  # 让tensorflow记录参数
-
-            ####
-            # Optimizer.
-            self.train_op = tf.train.AdagradOptimizer(learning_rate=0.1).minimize(self.loss)  # 训练操作
-            ###
+            # Optimizer (训练操作)
+            self.train_op = tf.train.AdagradOptimizer(learning_rate = self.learning_rate).minimize(self.loss)
             
-            # Compute the similarity between minibatch examples and all embeddings.
+            # Compute the similarity between minibatch examples and all embeddings (计算与测试的若干单词的相似度)
             # We use the cosine distance:
-
-            # 计算与指定若干单词的相似度
             self.test_word_id = tf.placeholder(tf.int32,shape=[None])
             vec_l2_model = tf.sqrt(  # 求各词向量的L2模
                 tf.reduce_sum(tf.square(self.embedding_dict),1,keep_dims=True)
@@ -179,13 +136,11 @@ class word2vec():
 
             avg_l2_model = tf.reduce_mean(vec_l2_model)
             tf.summary.scalar('avg_vec_model',avg_l2_model)
-
+            # 对embedding向量正则化
             self.normed_embedding = self.embedding_dict / vec_l2_model
-            # self.embedding_dict = norm_vec # 对embedding向量正则化
+            # self.embedding_dict = norm_vec 
             test_embed = tf.nn.embedding_lookup(self.normed_embedding, self.test_word_id)
             self.similarity = tf.matmul(test_embed, self.normed_embedding, transpose_b=True)
-
-
 
 
             # 变量初始化
@@ -196,49 +151,22 @@ class word2vec():
             self.saver = tf.train.Saver()
 
     def train_by_sentence(self, input_sentence=[]):
-        '''
-    win_len=2
-    ##
-    span=win_len*2-1
-    ##
-    #sent_num = input_sentence.__len__()
-    batch_inputs = []
-    batch_labels = []
-    for sent in input_sentence:                     #sent:['噢', '天', '上帝', '求求', '你别', '散发', '魅力']
-        for i in range(sent.__len__()):
-            start = max(0,i-win_len)
-            end = min(sent.__len__(),i+win_len+1)
-            win_inputs=[]
-            for index in range(start,end):          #在上下文区间遍历
-                #print(index)
-                if index == i:                      #去掉除了上下文的当前词
-                    #print(i)
-                    batch_labels.append(sent[i])
-
-                else:
-
-                    win_inputs.append(sent[index])
-            
-            
-            if(len(win_inputs)<span+1):
-                for i in range(span-len(win_inputs)+1):
-                    win_inputs.append(0)
-            batch_inputs.append(win_inputs)                       #输入词id传入batch中        
-        '''
-        # 输入当前已经分好词的句子
+        # sent:['噢', '天', '上帝', '求求', '你别', '散发', '魅力']
         span=self.win_len*2-1
         sent_num = input_sentence.__len__()
         batch_inputs = []
         batch_labels = []
-        for sent in input_sentence:                     #sent:['噢', '天', '上帝', '求求', '你别', '散发', '魅力']
+        # convert current words and their context into id
+        for sent in input_sentence:                     
             for i in range(sent.__len__()):
                 start = max(0,i-self.win_len)
                 end = min(sent.__len__(),i+self.win_len+1)
                 win_inputs=[]
                 for index in range(start,end):          #在上下文区间遍历
-                    if index == i:                      #去掉除了上下文的当前词
-                    ##################################get default return null id: default=self.vocab_size-1
+                    if index == i:
+                    #get default return null id: default=self.vocab_size-1
                         label_id=self.word2id.get(sent[i])
+                        ## might have problem ##
                         if label_id is None:
                             # if current word does not exist in top 90% frequency vocab_list
                             # add null id [vocab_size-1]
@@ -246,8 +174,7 @@ class word2vec():
                         else:
                             batch_labels.append(label_id)
 
-                        #continue
-                    else:                               #不一致则输入上下文
+                    else:                               
                         input_id=self.word2id.get(sent[index])
                         if input_id is None:
                             # if current word does not exist in top 90% frequency vocab_list
@@ -258,18 +185,21 @@ class word2vec():
            
                 if(len(win_inputs)<span+1):
                     for i in range(span-len(win_inputs)+1):
-                        ##########################################################
+                        #
                         # self.vocab_size-1 is reserved for null type to keep the shape of batch_inputs is (win_len*2,?)
                         win_inputs.append(self.vocab_size-1)
-                        #########################################################
+                        #
                 batch_inputs.append(win_inputs)                       #输入词id传入batch中 
                 
                 if len(batch_inputs)==0:
                     return
-        #使用numpy把行转换为列
-        batch_inputs = np.array(batch_inputs,dtype=np.int32).T                #int32因为是id值
+                    
+        # convert list -> numpy array
+        # input: context of current words
+        batch_inputs = np.array(batch_inputs,dtype=np.int32).T
+        # output: current words
         batch_labels = np.array(batch_labels,dtype=np.int32)
-        batch_labels = np.reshape(batch_labels,[batch_labels.__len__(),1])  #行->列
+        batch_labels = np.reshape(batch_labels,[batch_labels.__len__(),1])
         # len(batch_inputs)>0: check if context of current word is null
         if len(batch_inputs)>0 and len(batch_inputs.T)>0:
             feed_dict = {
@@ -277,8 +207,8 @@ class word2vec():
                 self.train_labels: batch_labels
             }
             _, loss_val, summary_str = self.sess.run([self.train_op,self.loss,self.merged_summary_op], feed_dict=feed_dict)
-            #self.train_op迭代得到损失值
-            # train loss
+
+            # loss_val: loss value of one batch returned by sampled_softmax_loss
             self.train_loss_records.append(loss_val)
             # self.train_loss_k10 = sum(self.train_loss_records)/self.train_loss_records.__len__()
             self.train_loss_k10 = np.mean(self.train_loss_records)
@@ -293,7 +223,7 @@ class word2vec():
             self.train_sents_num += input_sentence.__len__()
             self.train_times_num += 1
 
-    #计算相似度
+    # Calculate the similarity
     def cal_similarity(self,test_word_id_list,top_k=10):
         sim_matrix = self.sess.run(self.similarity, feed_dict={self.test_word_id:test_word_id_list})
         sim_mean = np.mean(sim_matrix)
@@ -368,66 +298,34 @@ class word2vec():
             self.train_loss_k10 = model['train_loss_k10']
            
 if __name__=='__main__':
-    # step 1 读取停用词
-    #停用词：并不希望使用的无意义的词 e.g你的铅笔 我吃饭了 ‘的’‘了’
-    print(1)
-    stopWords=[]
-    path=r'E:\自然语言处理\代码\tensorflow-word2vec'
-    name='stopwords.txt'
-    with open(path+'\\'+name,encoding='utf-8') as f:
-        line=f.readline()
-        while line:#只要line中有东西，就一点点往里面存
-            stopWords.append(line[:-1])
-            #[:-1]去掉每一行的换行符 \n
-            line=f.readline()
-            
-        #去掉重复的值
-        stopWords=set(stopWords)
-        print(stopWords)
-
-    print('停用词读取完毕，共{n}个单词'.format(n=len(stopWords)))
-
-    # step2 读取文本，预处理，分词，得到词典
+    # Read Comment_with_segmentation.txt
+    path=r'C:\Users\windows\Desktop\1801\数据分析\CBOW'
     raw_word_list = []
     sentence_list = []
-    #Comment_New.txt 'utf-8'
-    with open('Comment_New.txt',encoding='utf-8') as f:
+    comment_file='Comment_with_segmentation.txt'
+    with open(path+'\\'+comment_file,encoding='gbk') as f:
         line = f.readline()
         while line:
-            #每一行的换行符\n去掉
+            #remove \n in every line
             while '\n' in line:
                 line = line.replace('\n','')
 
-           
-            #while '!' in line:
-                #line = line.replace('!','')             
-            #每一行的空格\n去掉 
-            #while ' ' in line:
-                #line = line.replace(' ','')
-            #去掉标点符号remove all symbol in comment
-           #\d number
-           #\w English char
-           #\u4e00-\u9fa5 Chinese char
-            if re.findall(u'[^\u4e00-\u9fa5]+',line):  
-                tmp=re.findall(u'[^\u4e00-\u9fa5]+',line)
-                for i in tmp:
-                    line=line.replace(i,' ')
-            if len(line)>0: # 如果句子非空
-                #jieba.cut(line,cut_all=False) 一行分词结果传入list
-                raw_words = list(jieba.cut(line,cut_all=False))
-                #
+            if len(line)>0: 
+            # if current line is not null
+                raw_words = line.split()
                 dealed_words = []
-                for word in raw_words:
-                    #word不在停用词中                   
-                    if word not in stopWords and word not in ['www','com','http']:
-                        print(word)
+                for word in raw_words:                 
+                    if word not in ['',' ']:
                         raw_word_list.append(word)
                         #raw_word_list: all words in file [word1,word2,....,wordn]
                         dealed_words.append(word)
                         #dealed_words: words in current line
                 sentence_list.append(dealed_words)
-            #读下一行
+                
+            # Read the next line
             line = f.readline()
+            
+    #sentence_list = [[word1,word2,...],[word1,word2,..]]
     print(sentence_list)
     #[[word1,word2,...],[word1,word2,..]]
 
@@ -443,7 +341,7 @@ if __name__=='__main__':
     #most_common(n)提取最常见的n个词 
     #word_count = word_count.most_common(100)
     
-    word_count = word_count.most_common(15000)
+    word_count = word_count.most_common(len(word_count))
     #word_count.most_common(10)后是一个词对应一个词频
     #word_count变成元祖列表[('哈哈哈', 12),('厉害', 4),(),...]
     #只拿第一维x[0]把单词拿出来
@@ -455,8 +353,8 @@ if __name__=='__main__':
     # 创建模型，训练
     w2v = word2vec(vocab_list=word_list,    #   词典集 （语料库）
                    embedding_size=300,      #   词向量维度 不能动
-                   win_len=4,               #   滑动窗口 越大越好
-                   learning_rate=0.1,         #   学习率 越小越好
+                   win_len=2,               #   滑动窗口 越大越好
+                   learning_rate=1,         #   学习率 越小越好
                    num_sampled=100,         # 负采样个数 不能动
                    logdir='/tmp/simple_word2vec')       # tensorboard记录地址
                    
@@ -465,12 +363,15 @@ if __name__=='__main__':
     for i in range(num_steps):
         #print (i%len(sentence_list))
         #sentence_list [[word1,word2,...],[word1,word2,..]]
-        sent = sentence_list[i%len(sentence_list)]  #一句一句拿出来
-        w2v.train_by_sentence([sent])               #训练函数 输入当前已经分好词的句子
+        sent = sentence_list[i%len(sentence_list)]  
+        w2v.train_by_sentence([sent])               
+        #input a sentence
+        
+    #Save the model
     w2v.save_model('model')
-    #保存模型  
+    
     w2v.load_model('model') 
-    test_word = ['北京','冬奥会','中国','冠军','韩国','裁判','犯规','辣鸡']
+    test_word = ['北京','中国','冠军','韩国','裁判','犯规']
     test_id = [word_list.index(x) for x in test_word]
     #计算相似度
     test_words,near_words,sim_mean,sim_var = w2v.cal_similarity(test_id)
