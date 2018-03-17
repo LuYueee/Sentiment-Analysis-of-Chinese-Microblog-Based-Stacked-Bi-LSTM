@@ -27,25 +27,28 @@ if __name__=='__main__':
             line=f.readline()           
         #remove repeat stop words
         stopWords=set(stopWords)
+        #print(stopWords)
+
+    #print('停用词读取完毕，共{n}个单词'.format(n=len(stopWords)))
 
 
     # step2 remove punctuation and Chinese stop words and do the segmentation using Jieba
     raw_word_list = []
     sentence_list = []
-    comment_file='Comment_new.txt'
-    with open(path+'\\'+comment_file,encoding='utf-8') as f:
+    comment_file='10K.txt'
+    with open(path+'\\'+comment_file,encoding='gbk') as f:
         line = f.readline()
         while line:
             #remove \n in every line
             while '\n' in line:
                 line = line.replace('\n','')
 
-            # remove all punctuation in comment
+            # remove all punctuation and number in comment
             # \d number
-            # \w English char
+            # \w English char and number
             # \u4e00-\u9fa5 Chinese char
-            if re.findall(u'[^\u4e00-\u9fa5\d\w]+',line):  
-                tmp=re.findall(u'[^\u4e00-\u9fa5\d\w]+',line)
+            if re.findall(u'[^\u4e00-\u9fa5\da-zA-Z]+',line):  
+                tmp=re.findall(u'[^\u4e00-\u9fa5\da-zA-Z]+',line)
                 for i in tmp:
                     line=line.replace(i,' ')
             if len(line)>0: 
@@ -68,7 +71,7 @@ if __name__=='__main__':
 
     #step3 write dealed words into a file comment by comment
     write_file='Comment_with_segmentation.txt'
-    file=open(path+'\\'+write_file,'w')
+    file=open(path+'\\'+write_file,'w',encoding='utf-8')
     for sent in sentence_list:
         for i in range(len(sent)):
             file.write(sent[i]+' ')
