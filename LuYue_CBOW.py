@@ -303,7 +303,7 @@ if __name__=='__main__':
     raw_word_list = []
     sentence_list = []
     comment_file='Comment_with_segmentation.txt'
-    with open(path+'\\'+comment_file,encoding='gbk') as f:
+    with open(path+'\\'+comment_file,encoding='utf-8') as f:
         line = f.readline()
         while line:
             #remove \n in every line
@@ -331,31 +331,32 @@ if __name__=='__main__':
 
     word_count = collections.Counter(raw_word_list)
     #raw_word_list中的单词去重后放入word_count
-    #collections.Counter 可以用来统计词频
+    
+    #collections.Counter : statistic frequency of words
     print('文本中总共有{n1}个单词,不重复单词数{n2},选取前15000个单词进入词典'
           .format(n1=len(raw_word_list),n2=len(word_count)))
           #文本中总共有523496个单词,不重复单词数45475,选取前35000个单词进入词典
           
     #针对提取的部分单词出现较少的情况（生僻词），使用most_common(n)过滤
-    #word_count是根据词频排序的词汇表
+
     #most_common(n)提取最常见的n个词 
     #word_count = word_count.most_common(100)
     
     word_count = word_count.most_common(len(word_count))
-    #word_count.most_common(10)后是一个词对应一个词频
+    #word_count.most_common() { 'word1': frequency,'word2': frequency,... }
     #word_count变成元祖列表[('哈哈哈', 12),('厉害', 4),(),...]
-    #只拿第一维x[0]把单词拿出来
+    #Get the 1st dim word x[0]
     word_list = [x[0] for x in word_count]
     #word_list 把所有最常见的30000词按照词频顺序拿到手了
     print(word_list)
 
     #word2vec类
     # 创建模型，训练
-    w2v = word2vec(vocab_list=word_list,    #   词典集 （语料库）
-                   embedding_size=300,      #   词向量维度 不能动
-                   win_len=2,               #   滑动窗口 越大越好
-                   learning_rate=1,         #   学习率 越小越好
-                   num_sampled=100,         # 负采样个数 不能动
+    w2v = word2vec(vocab_list=word_list,    # Corpus
+                   embedding_size=300,      # Dimension of words vectors -
+                   win_len=2,               # Size of Sliding window (the bigger the better)
+                   learning_rate=1,         # Learning Rate (the smaller the better)
+                   num_sampled=100,         # Number nagative sample -
                    logdir='/tmp/simple_word2vec')       # tensorboard记录地址
                    
                    
@@ -371,12 +372,10 @@ if __name__=='__main__':
     w2v.save_model('model')
     
     w2v.load_model('model') 
+    #input the test word
     test_word = ['北京','中国','冠军','韩国','裁判','犯规']
     test_id = [word_list.index(x) for x in test_word]
-    #计算相似度
+    #Calculate the similarity
     test_words,near_words,sim_mean,sim_var = w2v.cal_similarity(test_id)
     print (test_words,near_words,sim_mean,sim_var)
-
-
-
 
