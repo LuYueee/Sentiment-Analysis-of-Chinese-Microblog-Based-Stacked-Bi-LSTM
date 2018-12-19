@@ -1,3 +1,5 @@
+Here are our trained models for Weibo comments:
+
 Word Representation Models:
   CBOW_100dimension.model
   CBOW_200dimension.model
